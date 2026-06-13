@@ -4,12 +4,13 @@
  */
 
 import React, { useState } from 'react';
-import { User } from '../types';
+import { User, Transaction, Goal } from '../types';
 import { ShieldAlert, Key, LogOut, Check, RefreshCw, Landmark, Trash2 } from 'lucide-react';
-import { getTransactions, getGoals } from '../utils/db';
 
 interface ProfileViewProps {
   user: User;
+  transactions: Transaction[];
+  goals: Goal[];
   onUpdateProfile: (updated: User) => void;
   onLogout: () => void;
 }
@@ -22,15 +23,13 @@ const CURRENCIES = [
   { symbol: '¥', name: 'Japanese Yen (JPY)' },
 ];
 
-export default function ProfileView({ user, onUpdateProfile, onLogout }: ProfileViewProps) {
+export default function ProfileView({ user, transactions, goals, onUpdateProfile, onLogout }: ProfileViewProps) {
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [currency, setCurrency] = useState(user.currency);
   const [theme, setTheme] = useState(user.theme);
 
   // Dynamic statistics calculations
-  const transactions = getTransactions(user.id);
-  const goals = getGoals(user.id);
   const totalIncome = transactions.filter(t => t.type === 'credit').length;
   const totalExpenses = transactions.filter(t => t.type === 'debit').length;
   const activeGoalsCount = goals.length;

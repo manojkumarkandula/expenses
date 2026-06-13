@@ -19,6 +19,8 @@ import {
   deleteGoal,
   updateUser,
   getUsers,
+  loginUser,
+  logoutUser,
 } from './utils/db';
 import { User, Transaction, Goal } from './types';
 import ThemeToggle from './components/ThemeToggle';
@@ -79,27 +81,35 @@ export default function App() {
   // Initialize DB and Fetch initial session
   useEffect(() => {
     initDb();
-    const user = getCurrentUser();
-    if (user) {
-      setCurrentUser(user);
-    }
+    const fetchSession = async () => {
+      const user = await getCurrentUser();
+      if (user) {
+        setCurrentUser(user);
+      }
+    };
+    fetchSession();
   }, []);
 
   // Sync state whenever currentUser changes
   useEffect(() => {
-    if (currentUser) {
-      setTransactions(getTransactions(currentUser.id));
-      setGoals(getGoals(currentUser.id));
+    const syncData = async () => {
+      if (currentUser) {
+        const txs = await getTransactions(currentUser.id);
+        const gls = await getGoals(currentUser.id);
+        setTransactions(txs);
+        setGoals(gls);
 
-      // Synchronize visual dark mode class
-      if (currentUser.theme === 'dark') {
-        document.documentElement.classList.add('dark');
+        // Synchronize visual dark mode class
+        if (currentUser.theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
       } else {
-        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.remove('dark'); // default light
       }
-    } else {
-      document.documentElement.classList.remove('dark'); // default light
-    }
+    };
+    syncData();
   }, [currentUser]);
 
   // Global Keyboard Shortcuts Event Listeners
@@ -169,7 +179,7 @@ export default function App() {
   }, []);
 
   // UI Event Handlers
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
 
@@ -178,24 +188,17 @@ export default function App() {
       return;
     }
 
-    const users = getUsers();
-    const match = users.find(
-      (u) =>
-        u.email.toLowerCase() === loginEmail.trim().toLowerCase() &&
-        u.password === loginPassword
-    );
-
-    if (match) {
-      setCurrentUserId(match.id);
-      setCurrentUser(match);
+    try {
+      const user = await loginUser(loginEmail.trim(), loginPassword);
+      setCurrentUser(user);
       setLoginEmail('');
       setLoginPassword('');
-    } else {
-      setAuthError('Incorrect email or password credentials. (Hint: Register or try Demo login!)');
+    } catch (err: any) {
+      setAuthError(err.message || 'Incorrect email or password credentials.');
     }
   };
 
-  const handleRegisterInput = (e: React.FormEvent) => {
+  const handleRegisterInput = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
 
@@ -205,7 +208,7 @@ export default function App() {
     }
 
     try {
-      const newUser = registerUser(regName, regEmail, regPassword);
+      const newUser = await registerUser(regName, regEmail, regPassword);
       setCurrentUser(newUser);
       setRegName('');
       setRegEmail('');
@@ -215,30 +218,33 @@ export default function App() {
     }
   };
 
-  const handleDemoAccess = () => {
+  const handleDemoAccess = async () => {
     // Standard fast bypass trigger
     initDb();
     const users = getUsers();
     const demo = users.find((u) => u.id === 'demo-user') || users[0];
     if (demo) {
       setCurrentUserId(demo.id);
-      setCurrentUser(demo);
+      const user = await getCurrentUser();
+      if (user) {
+        setCurrentUser(user);
+      }
     }
   };
 
-  const handleLogout = () => {
-    setCurrentUserId(null);
+  const handleLogout = async () => {
+    await logoutUser();
     setCurrentUser(null);
     setActiveTab('dashboard');
   };
 
-  const handleUpdateProfile = (updatedUser: User) => {
-    updateUser(updatedUser);
+  const handleUpdateProfile = async (updatedUser: User) => {
+    await updateUser(updatedUser);
     setCurrentUser(updatedUser);
   };
 
   // Transaction Actions Callbacks
-  const handleSaveMoneyTransaction = (data: {
+  const handleSaveMoneyTransaction = async (data: {
     amount: number;
     source: string;
     date: string;
@@ -257,11 +263,11 @@ export default function App() {
         title: data.title,
         notes: data.notes,
       };
-      updateTransaction(currentUser.id, updated);
+      await updateTransaction(currentUser.id, updated);
       setEditingTransaction(null);
     } else {
       // Add Mode
-      addTransaction(currentUser.id, {
+      await addTransaction(currentUser.id, {
         type: 'credit',
         amount: data.amount,
         source: data.source,
@@ -271,10 +277,11 @@ export default function App() {
       });
     }
 
-    setTransactions(getTransactions(currentUser.id));
+    const txs = await getTransactions(currentUser.id);
+    setTransactions(txs);
   };
 
-  const handleSaveExpenseTransaction = (data: {
+  const handleSaveExpenseTransaction = async (data: {
     amount: number;
     category: string;
     date: string;
@@ -293,11 +300,11 @@ export default function App() {
         title: data.title,
         notes: data.notes,
       };
-      updateTransaction(currentUser.id, updated);
+      await updateTransaction(currentUser.id, updated);
       setEditingTransaction(null);
     } else {
       // Add Mode
-      addTransaction(currentUser.id, {
+      await addTransaction(currentUser.id, {
         type: 'debit',
         amount: data.amount,
         category: data.category,
@@ -307,7 +314,8 @@ export default function App() {
       });
     }
 
-    setTransactions(getTransactions(currentUser.id));
+    const txs = await getTransactions(currentUser.id);
+    setTransactions(txs);
   };
 
   const handleTriggerEditTransaction = (tx: Transaction) => {
@@ -319,32 +327,37 @@ export default function App() {
     }
   };
 
-  const handleDeleteTransaction = (id: string) => {
+  const handleDeleteTransaction = async (id: string) => {
     if (!currentUser) return;
-    deleteTransaction(currentUser.id, id);
-    setTransactions(getTransactions(currentUser.id));
+    await deleteTransaction(currentUser.id, id);
+    const txs = await getTransactions(currentUser.id);
+    setTransactions(txs);
   };
 
   // Goals Action Callbacks
-  const handleAddNewGoal = (goalData: Omit<Goal, 'id' | 'user_id' | 'created_at'>) => {
+  const handleAddNewGoal = async (goalData: Omit<Goal, 'id' | 'user_id' | 'created_at'>) => {
     if (!currentUser) return;
-    addGoal(currentUser.id, goalData);
-    setGoals(getGoals(currentUser.id));
+    await addGoal(currentUser.id, goalData);
+    const gls = await getGoals(currentUser.id);
+    setGoals(gls);
   };
 
-  const handleContributeToGoals = (goalId: string, amount: number) => {
+  const handleContributeToGoals = async (goalId: string, amount: number) => {
     if (!currentUser) return;
-    contributeToGoal(currentUser.id, goalId, amount);
+    await contributeToGoal(currentUser.id, goalId, amount);
 
     // Refresh transactions list and goals progress
-    setTransactions(getTransactions(currentUser.id));
-    setGoals(getGoals(currentUser.id));
+    const txs = await getTransactions(currentUser.id);
+    const gls = await getGoals(currentUser.id);
+    setTransactions(txs);
+    setGoals(gls);
   };
 
-  const handleDeleteGoal = (id: string) => {
+  const handleDeleteGoal = async (id: string) => {
     if (!currentUser) return;
-    deleteGoal(currentUser.id, id);
-    setGoals(getGoals(currentUser.id));
+    await deleteGoal(currentUser.id, id);
+    const gls = await getGoals(currentUser.id);
+    setGoals(gls);
   };
 
   const calculateAvailableBalance = () => {
@@ -408,7 +421,15 @@ export default function App() {
       case 'analytics':
         return <AnalyticsView user={currentUser} transactions={transactions} />;
       case 'profile':
-        return <ProfileView user={currentUser} onUpdateProfile={handleUpdateProfile} onLogout={handleLogout} />;
+        return (
+          <ProfileView
+            user={currentUser}
+            transactions={transactions}
+            goals={goals}
+            onUpdateProfile={handleUpdateProfile}
+            onLogout={handleLogout}
+          />
+        );
     }
   };
 
