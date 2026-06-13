@@ -1,0 +1,6 @@
+{
+  "name": "PocketLedger",
+  "description": "Track money in. Track money out. Know your balance instantly.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
