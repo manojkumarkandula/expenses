@@ -594,19 +594,6 @@ export default function App() {
                 </button>
               </form>
             )}
-
-            {/* Quick Demo fast Access option */}
-            <div className="pt-4 border-t border-neutral-100 dark:border-neutral-855 text-center">
-              <span className="text-[10px] text-neutral-400 uppercase tracking-widest block mb-2 font-mono">
-                Speed Evaluation
-              </span>
-              <button
-                onClick={handleDemoAccess}
-                className="py-2 px-6 bg-neutral-50 hover:bg-neutral-100 dark:bg-neutral-950 dark:hover:bg-neutral-850 hover:border-neutral-400 border border-neutral-200 dark:border-neutral-800 rounded-xl text-xs font-bold transition-all text-neutral-800 dark:text-neutral-200 w-full"
-              >
-                Instant Access with Preset Sandbox
-              </button>
-            </div>
             
           </div>
           <div className="mt-8 text-[10px] font-mono text-center text-neutral-400">
